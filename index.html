@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在线工具箱</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #fff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --tag-bg: #f1f5f9;
+      --hover-shadow: rgba(99, 102, 241, 0.15);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --tag-bg: #334155;
+      --hover-shadow: rgba(99, 102, 241, 0.3);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      min-height: 100vh;
+      color: var(--text-primary);
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { max-width: 1200px; margin: 0 auto; position: relative; }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px var(--hover-shadow);
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+    .header {
+      text-align: center;
+      padding-top: 60px;
+      margin-bottom: 60px;
+    }
+    h1 {
+      font-size: 42px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 18px;
+      color: var(--text-secondary);
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .tool-card {
+      background: var(--bg-secondary);
+      border-radius: 20px;
+      padding: 24px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    .tool-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--card-color);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .tool-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 40px var(--hover-shadow);
+      border-color: #6366f1;
+    }
+    .tool-card:hover::before {
+      opacity: 1;
+    }
+
+    .tool-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 16px;
+      background: var(--icon-bg);
+    }
+    .tool-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text-primary);
+    }
+    .tool-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .tool-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      padding: 4px 10px;
+      background: var(--tag-bg);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 不同卡片的颜色 */
+    .tool-card.purple { --card-color: #6366f1; --icon-bg: #ede9fe; }
+    .tool-card.pink { --card-color: #ec4899; --icon-bg: #fce7f3; }
+    .tool-card.green { --card-color: #10b981; --icon-bg: #d1fae5; }
+    .tool-card.blue { --card-color: #3b82f6; --icon-bg: #dbeafe; }
+    .tool-card.orange { --card-color: #f59e0b; --icon-bg: #fef3c7; }
+
+    [data-theme="dark"] .tool-card.purple { --icon-bg: rgba(99, 102, 241, 0.2); }
+    [data-theme="dark"] .tool-card.pink { --icon-bg: rgba(236, 72, 153, 0.2); }
+    [data-theme="dark"] .tool-card.green { --icon-bg: rgba(16, 185, 129, 0.2); }
+    [data-theme="dark"] .tool-card.blue { --icon-bg: rgba(59, 130, 246, 0.2); }
+    [data-theme="dark"] .tool-card.orange { --icon-bg: rgba(245, 158, 11, 0.2); }
+
+    .footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1024px) {
+      .tools-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 32px; }
+      .tools-grid { grid-template-columns: 1fr; }
+      .tool-card { padding: 20px; }
+      .theme-toggle { width: 40px; height: 40px; font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="icon-sun">☀️</span>
+      <span class="icon-moon">🌙</span>
+    </button>
+
+    <div class="header">
+      <h1>在线工具箱</h1>
+      <p class="subtitle">纯前端实现，无需上传服务器，保护您的隐私</p>
+    </div>
+
+    <div class="tools-grid">
+      <a href="image-extractor.html" class="tool-card purple">
+        <div class="tool-icon">🎨</div>
+        <div class="tool-title">Logo 抠图工具</div>
+        <div class="tool-desc">智能移除图片背景，支持容差调节、羽化效果、画笔修复，批量处理多张图片</div>
+        <div class="tool-tags">
+          <span class="tag">抠图</span>
+          <span class="tag">背景移除</span>
+          <span class="tag">批量处理</span>
+        </div>
+      </a>
+
+      <a href="image-upscaler.html" class="tool-card pink">
+        <div class="tool-icon">🖼️</div>
+        <div class="tool-title">图片高清放大</div>
+        <div class="tool-desc">智能放大图片 1-4 倍，支持锐化、降噪、色彩调整，多种预设一键增强画质</div>
+        <div class="tool-tags">
+          <span class="tag">智能放大</span>
+          <span class="tag">锐化降噪</span>
+          <span class="tag">画质增强</span>
+        </div>
+      </a>
+
+      <a href="pdf-splitter.html" class="tool-card green">
+        <div class="tool-icon">📄</div>
+        <div class="tool-title">PDF 切割工具</div>
+        <div class="tool-desc">预览 PDF 页面，手动选择页面范围，支持多次切割，一键打包下载 ZIP</div>
+        <div class="tool-tags">
+          <span class="tag">PDF 分割</span>
+          <span class="tag">页面提取</span>
+          <span class="tag">批量导出</span>
+        </div>
+      </a>
+
+      <a href="format-converter.html" class="tool-card blue">
+        <div class="tool-icon">🔄</div>
+        <div class="tool-title">格式转换工具</div>
+        <div class="tool-desc">图片格式互转、PDF 与图片互转、多 PDF 合并，支持批量处理打包下载</div>
+        <div class="tool-tags">
+          <span class="tag">格式转换</span>
+          <span class="tag">PDF 转图</span>
+          <span class="tag">批量处理</span>
+        </div>
+      </a>
+
+      <a href="aippt.html" class="tool-card orange">
+        <div class="tool-icon">📊</div>
+        <div class="tool-title">AIPPT 生成器</div>
+        <div class="tool-desc">AI 智能生成 PPT，支持主题/大纲/内容/文件多种输入，可视化预览并导出多种格式</div>
+        <div class="tool-tags">
+          <span class="tag">AI 生成</span>
+          <span class="tag">PPT 制作</span>
+          <span class="tag">多格式导出</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="footer">
+      所有工具均在浏览器本地运行，文件不会上传到服务器
+    </div>
+  </div>
+
+  <script>
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      if (newTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+
+      localStorage.setItem('theme', newTheme);
+    });
+  </script>
+</body>
+</html>

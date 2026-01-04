@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片高清放大工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #fff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --accent-color: #6366f1;
+      --accent-hover: #4f46e5;
+      --success-color: #10b981;
+      --danger-color: #ef4444;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --accent-color: #818cf8;
+      --accent-hover: #6366f1;
+      --success-color: #34d399;
+      --danger-color: #f87171;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      min-height: 100vh;
+      color: var(--text-primary);
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { max-width: 1200px; margin: 0 auto; position: relative; }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+    .back-link:hover { color: var(--accent-color); }
+
+    .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+      color: var(--text-primary);
+    }
+    .upload-area {
+      border: 3px dashed var(--accent-color);
+      border-radius: 16px;
+      padding: 60px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--bg-secondary);
+      margin-bottom: 30px;
+    }
+    .upload-area:hover { border-color: var(--accent-hover); background: rgba(99, 102, 241, 0.1); }
+    .upload-area.hidden { display: none; }
+    .upload-icon { font-size: 64px; margin-bottom: 16px; }
+    .upload-text { font-size: 18px; color: var(--text-secondary); }
+    #fileInput { display: none; }
+
+    .controls {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+      display: none;
+    }
+    .controls.visible { display: block; }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .file-name { color: var(--accent-color); font-weight: 600; }
+    .btn-change {
+      padding: 6px 14px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-change:hover { background: var(--bg-primary); border-color: var(--accent-color); color: var(--accent-color); }
+
+    .control-section { margin-bottom: 20px; }
+    .section-title {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .control-group label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      min-width: 70px;
+    }
+    input[type="range"] {
+      width: 140px;
+      accent-color: var(--accent-color);
+    }
+    .value-display {
+      min-width: 45px;
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.1);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .scale-options { display: flex; gap: 8px; flex-wrap: wrap; }
+    .scale-btn {
+      padding: 10px 20px;
+      border: 2px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    .scale-btn.active {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--accent-color);
+    }
+    .scale-btn:hover:not(.active) { border-color: var(--accent-color); }
+
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: var(--accent-color);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover { background: var(--bg-primary); border-color: var(--accent-color); color: var(--accent-color); }
+    .btn-success {
+      background: var(--success-color);
+      color: #fff;
+    }
+    .btn-success:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .canvas-container {
+      display: none;
+      gap: 30px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .canvas-container.visible { display: flex; }
+    .canvas-wrapper {
+      text-align: center;
+      max-width: 100%;
+    }
+    .canvas-wrapper h3 {
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .canvas-wrapper h3 span {
+      background: rgba(99, 102, 241, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--accent-color);
+    }
+    .canvas-box {
+      background:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 15px;
+      display: inline-block;
+      max-width: 100%;
+      overflow: auto;
+    }
+    canvas {
+      max-width: 500px;
+      max-height: 500px;
+      border-radius: 8px;
+      display: block;
+    }
+    #resultCanvas {
+      max-width: none;
+      max-height: none;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--border-color);
+      border-radius: 3px;
+      overflow: hidden;
+      display: none;
+      margin-top: 12px;
+    }
+    .progress-bar.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-color);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .status-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      display: none;
+    }
+    .status-text.visible { display: block; }
+
+    .info-box {
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--accent-color);
+      margin-bottom: 16px;
+    }
+
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .preset-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border-color: var(--accent-color);
+    }
+    .preset-btn.active {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--accent-color);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      h1 { font-size: 22px; margin-bottom: 20px; }
+      .upload-area { padding: 40px 15px; }
+      .upload-icon { font-size: 48px; }
+      .upload-text { font-size: 14px; }
+      .controls { padding: 16px; }
+      .file-info { flex-direction: column; gap: 10px; text-align: center; }
+      .control-row { gap: 12px; }
+      .control-group { flex-wrap: wrap; gap: 8px; }
+      .control-group label { min-width: auto; font-size: 13px; }
+      input[type="range"] { width: 100px; }
+      .scale-options { justify-content: center; }
+      .scale-btn { padding: 8px 14px; font-size: 13px; }
+      .preset-row { justify-content: center; }
+      .preset-btn { padding: 6px 12px; font-size: 11px; }
+      .btn { padding: 12px 20px; font-size: 13px; }
+      .canvas-container { gap: 20px; }
+      .canvas-wrapper h3 { font-size: 14px; }
+      canvas { max-width: 100%; max-height: 280px; }
+    }
+
+    @media (max-width: 480px) {
+      .control-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .control-group { width: 100%; justify-content: space-between; }
+      input[type="range"] { flex: 1; }
+      .action-row { flex-direction: column; }
+      .btn { width: 100%; }
+      .canvas-container { flex-direction: column; }
+      .scale-btn { flex: 1; min-width: 60px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="icon-sun">☀️</span>
+      <span class="icon-moon">🌙</span>
+    </button>
+    <a href="index.html" class="back-link">← 返回首页</a>
+    <h1>图片高清放大工具</h1>
+
+    <div class="upload-area" id="uploadArea">
+      <div class="upload-icon">🖼️</div>
+      <div class="upload-text">点击上传图片或拖拽到此处</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div class="controls" id="controls">
+      <div class="file-info">
+        <span class="file-name" id="fileName">image.png</span>
+        <button class="btn-change" id="changeFileBtn">更换图片</button>
+      </div>
+
+      <div class="control-section">
+        <div class="section-title">📐 放大倍数</div>
+        <div class="scale-options" id="scaleOptions">
+          <button class="scale-btn" data-scale="1">1x (仅增强)</button>
+          <button class="scale-btn active" data-scale="2">2x</button>
+          <button class="scale-btn" data-scale="3">3x</button>
+          <button class="scale-btn" data-scale="4">4x</button>
+        </div>
+      </div>
+
+      <div class="control-section">
+        <div class="section-title">⚡ 快速预设</div>
+        <div class="preset-row">
+          <button class="preset-btn" data-preset="soft">柔和</button>
+          <button class="preset-btn active" data-preset="balanced">均衡</button>
+          <button class="preset-btn" data-preset="sharp">锐利</button>
+          <button class="preset-btn" data-preset="vivid">鲜艳</button>
+          <button class="preset-btn" data-preset="photo">照片修复</button>
+        </div>
+      </div>
+
+      <div class="control-section">
+        <div class="section-title">🎨 图像增强</div>
+        <div class="control-row">
+          <div class="control-group">
+            <label>锐化强度：</label>
+            <input type="range" id="sharpness" min="0" max="100" value="40">
+            <span class="value-display" id="sharpnessValue">40</span>
+          </div>
+          <div class="control-group">
+            <label>降噪：</label>
+            <input type="range" id="denoise" min="0" max="100" value="10">
+            <span class="value-display" id="denoiseValue">10</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="control-group">
+            <label>对比度：</label>
+            <input type="range" id="contrast" min="-50" max="50" value="5">
+            <span class="value-display" id="contrastValue">+5</span>
+          </div>
+          <div class="control-group">
+            <label>亮度：</label>
+            <input type="range" id="brightness" min="-50" max="50" value="0">
+            <span class="value-display" id="brightnessValue">0</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <div class="control-group">
+            <label>饱和度：</label>
+            <input type="range" id="saturation" min="-50" max="50" value="5">
+            <span class="value-display" id="saturationValue">+5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-primary" id="processBtn">开始处理</button>
+        <button class="btn btn-secondary" id="resetBtn">重置参数</button>
+        <button class="btn btn-success" id="downloadBtn" style="display: none;">💾 下载高清图</button>
+      </div>
+
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="status-text" id="statusText"></div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+      <div class="canvas-wrapper">
+        <h3>原图 <span id="originalSize">-</span></h3>
+        <div class="canvas-box">
+          <canvas id="originalCanvas"></canvas>
+        </div>
+      </div>
+      <div class="canvas-wrapper">
+        <h3>高清结果 <span id="resultSize">-</span></h3>
+        <div class="canvas-box" id="resultBox">
+          <canvas id="resultCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const controls = document.getElementById('controls');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const originalCanvas = document.getElementById('originalCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const processBtn = document.getElementById('processBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const changeFileBtn = document.getElementById('changeFileBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const statusText = document.getElementById('statusText');
+    const originalSize = document.getElementById('originalSize');
+    const resultSize = document.getElementById('resultSize');
+    const fileNameEl = document.getElementById('fileName');
+
+    const originalCtx = originalCanvas.getContext('2d');
+    const resultCtx = resultCanvas.getContext('2d');
+
+    let originalImage = null;
+    let currentScale = 2;
+    let isProcessing = false;
+    let currentFileName = 'image';
+
+    // Presets
+    const presets = {
+      soft: { sharpness: 20, denoise: 25, contrast: 3, brightness: 3, saturation: 3 },
+      balanced: { sharpness: 40, denoise: 10, contrast: 5, brightness: 0, saturation: 5 },
+      sharp: { sharpness: 70, denoise: 5, contrast: 10, brightness: 0, saturation: 3 },
+      vivid: { sharpness: 50, denoise: 8, contrast: 15, brightness: 3, saturation: 20 },
+      photo: { sharpness: 35, denoise: 20, contrast: 5, brightness: 2, saturation: 8 }
+    };
+
+    // Slider controls
+    const sliders = {
+      sharpness: { el: document.getElementById('sharpness'), display: document.getElementById('sharpnessValue'), format: v => v },
+      denoise: { el: document.getElementById('denoise'), display: document.getElementById('denoiseValue'), format: v => v },
+      contrast: { el: document.getElementById('contrast'), display: document.getElementById('contrastValue'), format: v => (v >= 0 ? '+' : '') + v },
+      brightness: { el: document.getElementById('brightness'), display: document.getElementById('brightnessValue'), format: v => (v >= 0 ? '+' : '') + v },
+      saturation: { el: document.getElementById('saturation'), display: document.getElementById('saturationValue'), format: v => (v >= 0 ? '+' : '') + v }
+    };
+
+    Object.keys(sliders).forEach(key => {
+      sliders[key].el.addEventListener('input', (e) => {
+        sliders[key].display.textContent = sliders[key].format(parseInt(e.target.value));
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      });
+    });
+
+    // Preset buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const preset = presets[btn.dataset.preset];
+        Object.keys(preset).forEach(key => {
+          sliders[key].el.value = preset[key];
+          sliders[key].display.textContent = sliders[key].format(preset[key]);
+        });
+      });
+    });
+
+    // Scale buttons
+    document.querySelectorAll('#scaleOptions .scale-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#scaleOptions .scale-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentScale = parseInt(btn.dataset.scale);
+      });
+    });
+
+    // File upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    changeFileBtn.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#4f46e5'; });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#6366f1'; });
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#6366f1';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) loadImage(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadImage(e.target.files[0]);
+    });
+
+    function loadImage(file) {
+      currentFileName = file.name.replace(/\.[^/.]+$/, '');
+      fileNameEl.textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          originalImage = img;
+
+          const maxDisplaySize = 500;
+          let w = img.width, h = img.height;
+          let displayW = w, displayH = h;
+          if (displayW > maxDisplaySize || displayH > maxDisplaySize) {
+            if (displayW > displayH) {
+              displayH = (displayH / displayW) * maxDisplaySize;
+              displayW = maxDisplaySize;
+            } else {
+              displayW = (displayW / displayH) * maxDisplaySize;
+              displayH = maxDisplaySize;
+            }
+          }
+
+          originalCanvas.width = displayW;
+          originalCanvas.height = displayH;
+          originalCtx.drawImage(img, 0, 0, displayW, displayH);
+
+          originalSize.textContent = `${img.width} × ${img.height}`;
+          resultSize.textContent = '-';
+
+          resultCanvas.width = displayW;
+          resultCanvas.height = displayH;
+          resultCtx.drawImage(img, 0, 0, displayW, displayH);
+
+          uploadArea.classList.add('hidden');
+          controls.classList.add('visible');
+          canvasContainer.classList.add('visible');
+          downloadBtn.style.display = 'none';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Process button
+    processBtn.addEventListener('click', async () => {
+      if (!originalImage || isProcessing) return;
+
+      isProcessing = true;
+      processBtn.disabled = true;
+      progressBar.classList.add('visible');
+      statusText.classList.add('visible');
+      downloadBtn.style.display = 'none';
+
+      try {
+        await processImage();
+        downloadBtn.style.display = 'inline-block';
+      } catch (error) {
+        console.error(error);
+        statusText.textContent = '处理失败: ' + error.message;
+      }
+
+      isProcessing = false;
+      processBtn.disabled = false;
+    });
+
+    async function processImage() {
+      const scale = currentScale;
+      const srcW = originalImage.width;
+      const srcH = originalImage.height;
+      const dstW = srcW * scale;
+      const dstH = srcH * scale;
+
+      statusText.textContent = '正在放大图像...';
+      progressFill.style.width = '10%';
+
+      // Create source canvas at original resolution
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = srcW;
+      srcCanvas.height = srcH;
+      const srcCtx = srcCanvas.getContext('2d');
+      srcCtx.drawImage(originalImage, 0, 0);
+
+      await sleep(30);
+
+      // Set result canvas size
+      resultCanvas.width = dstW;
+      resultCanvas.height = dstH;
+
+      // High quality upscaling with multiple passes for better quality
+      if (scale > 1) {
+        statusText.textContent = '正在智能放大...';
+        progressFill.style.width = '15%';
+
+        // Use stepwise upscaling for better quality
+        let currentCanvas = srcCanvas;
+        let currentW = srcW;
+        let currentH = srcH;
+
+        while (currentW < dstW || currentH < dstH) {
+          const nextW = Math.min(currentW * 2, dstW);
+          const nextH = Math.min(currentH * 2, dstH);
+
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = nextW;
+          tempCanvas.height = nextH;
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.imageSmoothingEnabled = true;
+          tempCtx.imageSmoothingQuality = 'high';
+          tempCtx.drawImage(currentCanvas, 0, 0, nextW, nextH);
+
+          currentCanvas = tempCanvas;
+          currentW = nextW;
+          currentH = nextH;
+        }
+
+        resultCtx.drawImage(currentCanvas, 0, 0, dstW, dstH);
+      } else {
+        resultCtx.drawImage(originalImage, 0, 0, dstW, dstH);
+      }
+
+      await sleep(30);
+      let imageData = resultCtx.getImageData(0, 0, dstW, dstH);
+
+      // Denoise first (before sharpening)
+      const denoiseLevel = parseInt(sliders.denoise.el.value);
+      if (denoiseLevel > 0) {
+        statusText.textContent = '正在智能降噪...';
+        progressFill.style.width = '25%';
+        await sleep(30);
+        imageData = applySmartDenoise(imageData, denoiseLevel / 100);
+      }
+
+      // Apply upscale-specific enhancement for better clarity
+      if (scale > 1) {
+        statusText.textContent = '正在增强清晰度...';
+        progressFill.style.width = '40%';
+        await sleep(30);
+        imageData = enhanceUpscaled(imageData, scale);
+      }
+
+      // Sharpen
+      const sharpness = parseInt(sliders.sharpness.el.value);
+      if (sharpness > 0) {
+        statusText.textContent = '正在锐化...';
+        progressFill.style.width = '55%';
+        await sleep(30);
+        imageData = applySmartSharpen(imageData, sharpness / 100);
+      }
+
+      // Color adjustments
+      statusText.textContent = '正在调整色彩...';
+      progressFill.style.width = '80%';
+      await sleep(30);
+
+      const contrast = parseInt(sliders.contrast.el.value);
+      const brightness = parseInt(sliders.brightness.el.value);
+      const saturation = parseInt(sliders.saturation.el.value);
+
+      if (contrast !== 0 || brightness !== 0 || saturation !== 0) {
+        imageData = adjustColors(imageData, contrast, brightness, saturation);
+      }
+
+      resultCtx.putImageData(imageData, 0, 0);
+      resultSize.textContent = `${dstW} × ${dstH}`;
+
+      progressFill.style.width = '100%';
+      statusText.textContent = `处理完成！${scale > 1 ? `图像已放大 ${scale}x` : '图像已增强'}`;
+    }
+
+    // Smart denoise using bilateral-like filter
+    function applySmartDenoise(imageData, strength) {
+      const w = imageData.width;
+      const h = imageData.height;
+      const src = imageData.data;
+      const dst = new Uint8ClampedArray(src);
+
+      const radius = Math.max(1, Math.floor(1 + strength * 2));
+      const sigmaSpace = radius;
+      const sigmaColor = 20 + strength * 40;
+
+      for (let y = radius; y < h - radius; y++) {
+        for (let x = radius; x < w - radius; x++) {
+          const ci = (y * w + x) * 4;
+          const cr = src[ci], cg = src[ci + 1], cb = src[ci + 2];
+
+          let sumR = 0, sumG = 0, sumB = 0, sumWeight = 0;
+
+          for (let ky = -radius; ky <= radius; ky++) {
+            for (let kx = -radius; kx <= radius; kx++) {
+              const ni = ((y + ky) * w + (x + kx)) * 4;
+              const nr = src[ni], ng = src[ni + 1], nb = src[ni + 2];
+
+              const spaceDist = Math.sqrt(kx * kx + ky * ky);
+              const spaceWeight = Math.exp(-(spaceDist * spaceDist) / (2 * sigmaSpace * sigmaSpace));
+
+              const colorDist = Math.sqrt((nr - cr) ** 2 + (ng - cg) ** 2 + (nb - cb) ** 2);
+              const colorWeight = Math.exp(-(colorDist * colorDist) / (2 * sigmaColor * sigmaColor));
+
+              const weight = spaceWeight * colorWeight;
+              sumR += nr * weight;
+              sumG += ng * weight;
+              sumB += nb * weight;
+              sumWeight += weight;
+            }
+          }
+
+          dst[ci] = sumR / sumWeight;
+          dst[ci + 1] = sumG / sumWeight;
+          dst[ci + 2] = sumB / sumWeight;
+        }
+      }
+
+      return new ImageData(dst, w, h);
+    }
+
+    // Smart sharpen - balanced approach for both photos and graphics
+    function applySmartSharpen(imageData, strength) {
+      const w = imageData.width;
+      const h = imageData.height;
+      const src = imageData.data;
+      const dst = new Uint8ClampedArray(src);
+
+      // Use appropriate blur radius
+      const blurred = gaussianBlur(src, w, h, 1.0);
+
+      // Stronger base amount for visible sharpening
+      const baseAmount = 0.8 + strength * 2.0;
+      const threshold = 2;
+
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const i = (y * w + x) * 4;
+
+          for (let c = 0; c < 3; c++) {
+            const diff = src[i + c] - blurred[i + c];
+
+            // Only apply to differences above threshold
+            if (Math.abs(diff) > threshold) {
+              // Limit the maximum sharpening to prevent halo artifacts
+              const maxSharp = 40; // Maximum pixel change
+              const sharpValue = Math.max(-maxSharp, Math.min(maxSharp, baseAmount * diff));
+              dst[i + c] = clamp(src[i + c] + sharpValue);
+            }
+          }
+        }
+      }
+
+      return new ImageData(dst, w, h);
+    }
+
+    // Additional edge-preserving upscale enhancement
+    function enhanceUpscaled(imageData, scale) {
+      if (scale <= 1) return imageData;
+
+      const w = imageData.width;
+      const h = imageData.height;
+      const src = imageData.data;
+      const dst = new Uint8ClampedArray(src);
+
+      // Light unsharp mask specifically for upscaled images
+      const blurred = gaussianBlur(src, w, h, 0.8);
+      const amount = 0.5 + (scale - 1) * 0.3; // More enhancement for higher scales
+
+      for (let i = 0; i < src.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+          const diff = src[i + c] - blurred[i + c];
+          // Gentle enhancement with clamped output
+          const enhanced = src[i + c] + amount * diff;
+          dst[i + c] = clamp(enhanced);
+        }
+      }
+
+      return new ImageData(dst, w, h);
+    }
+
+    // Gaussian blur helper
+    function gaussianBlur(src, w, h, radius) {
+      const dst = new Float32Array(src.length);
+      const kernel = [];
+      const sigma = radius;
+      const size = Math.ceil(radius * 3);
+
+      for (let i = -size; i <= size; i++) {
+        kernel.push(Math.exp(-(i * i) / (2 * sigma * sigma)));
+      }
+
+      // Horizontal pass
+      const temp = new Float32Array(src.length);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let r = 0, g = 0, b = 0, sum = 0;
+          for (let k = -size; k <= size; k++) {
+            const px = Math.min(Math.max(x + k, 0), w - 1);
+            const i = (y * w + px) * 4;
+            const weight = kernel[k + size];
+            r += src[i] * weight;
+            g += src[i + 1] * weight;
+            b += src[i + 2] * weight;
+            sum += weight;
+          }
+          const i = (y * w + x) * 4;
+          temp[i] = r / sum;
+          temp[i + 1] = g / sum;
+          temp[i + 2] = b / sum;
+        }
+      }
+
+      // Vertical pass
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let r = 0, g = 0, b = 0, sum = 0;
+          for (let k = -size; k <= size; k++) {
+            const py = Math.min(Math.max(y + k, 0), h - 1);
+            const i = (py * w + x) * 4;
+            const weight = kernel[k + size];
+            r += temp[i] * weight;
+            g += temp[i + 1] * weight;
+            b += temp[i + 2] * weight;
+            sum += weight;
+          }
+          const i = (y * w + x) * 4;
+          dst[i] = r / sum;
+          dst[i + 1] = g / sum;
+          dst[i + 2] = b / sum;
+        }
+      }
+
+      return dst;
+    }
+
+    // Color adjustment
+    function adjustColors(imageData, contrast, brightness, saturation) {
+      const data = imageData.data;
+
+      const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+      const brightnessFactor = brightness * 2.55;
+      const saturationFactor = 1 + saturation / 100;
+
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+
+        // Brightness
+        r += brightnessFactor;
+        g += brightnessFactor;
+        b += brightnessFactor;
+
+        // Contrast
+        r = contrastFactor * (r - 128) + 128;
+        g = contrastFactor * (g - 128) + 128;
+        b = contrastFactor * (b - 128) + 128;
+
+        // Saturation
+        const gray = 0.2989 * r + 0.587 * g + 0.114 * b;
+        r = gray + saturationFactor * (r - gray);
+        g = gray + saturationFactor * (g - gray);
+        b = gray + saturationFactor * (b - gray);
+
+        data[i] = clamp(r);
+        data[i + 1] = clamp(g);
+        data[i + 2] = clamp(b);
+      }
+
+      return imageData;
+    }
+
+    function clamp(value) {
+      return Math.max(0, Math.min(255, Math.round(value)));
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Reset button
+    resetBtn.addEventListener('click', () => {
+      // Apply balanced preset (conservative values)
+      const preset = presets.balanced;
+      Object.keys(preset).forEach(key => {
+        sliders[key].el.value = preset[key];
+        sliders[key].display.textContent = sliders[key].format(preset[key]);
+      });
+
+      document.querySelectorAll('.preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === 'balanced');
+      });
+
+      document.querySelectorAll('#scaleOptions .scale-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.scale === '2');
+      });
+      currentScale = 2;
+    });
+
+    // Initialize with balanced preset values on page load
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.preset === 'balanced');
+    });
+
+    // Download button
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `${currentFileName}-${currentScale}x-enhanced.png`;
+      link.href = resultCanvas.toDataURL('image/png');
+      link.click();
+    });
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    }
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      if (newTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+      localStorage.setItem('theme', newTheme);
+    });
+  </script>
+</body>
+</html>

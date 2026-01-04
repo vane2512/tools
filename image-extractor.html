@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logo 抠图工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #fff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --accent-color: #6366f1;
+      --accent-hover: #4f46e5;
+      --success-color: #10b981;
+      --danger-color: #ef4444;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --accent-color: #818cf8;
+      --accent-hover: #6366f1;
+      --success-color: #34d399;
+      --danger-color: #f87171;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { max-width: 1200px; margin: 0 auto; position: relative; }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+    .back-link:hover { color: var(--accent-color); }
+
+    .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+      color: var(--text-primary);
+    }
+    .upload-area {
+      border: 3px dashed var(--accent-color);
+      border-radius: 16px;
+      padding: 60px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--bg-secondary);
+      margin-bottom: 30px;
+    }
+    .upload-area:hover { border-color: var(--accent-hover); background: rgba(99, 102, 241, 0.1); }
+    .upload-icon { font-size: 64px; margin-bottom: 16px; }
+    .upload-text { font-size: 18px; color: var(--text-secondary); }
+    #fileInput { display: none; }
+
+    .image-list {
+      display: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      min-height: 80px;
+      align-items: center;
+    }
+    .image-list.visible {
+      display: flex;
+    }
+    .thumb-item {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid var(--border-color);
+      transition: all 0.2s;
+    }
+    .thumb-item:hover { transform: scale(1.05); }
+    .thumb-item.active { border-color: var(--accent-color); box-shadow: 0 0 10px rgba(99, 102, 241, 0.15); }
+    .thumb-item.processed::after {
+      content: '✓';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: var(--success-color);
+      color: #fff;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-item .remove-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      background: var(--danger-color);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .thumb-item:hover .remove-btn { display: flex; }
+    .add-more-btn {
+      width: 60px;
+      height: 60px;
+      border: 2px dashed var(--accent-color);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--accent-color);
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-more-btn:hover { background: rgba(99, 102, 241, 0.05); }
+
+    .controls {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+      display: none;
+    }
+    .controls.visible { display: block; }
+    .control-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .control-group label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    input[type="range"] { width: 120px; accent-color: var(--accent-color); }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: var(--accent-color);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+    }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover { background: var(--bg-primary); border-color: var(--border-color); }
+    .btn-success {
+      background: var(--success-color);
+      color: #fff;
+    }
+    .btn-success:hover {
+      background: var(--success-color);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.15);
+    }
+    .canvas-container {
+      display: none;
+      gap: 30px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .canvas-container.visible { display: flex; }
+    .canvas-wrapper { text-align: center; }
+    .canvas-wrapper h3 { margin-bottom: 16px; font-size: 16px; color: var(--text-secondary); }
+    .canvas-box {
+      background:
+        linear-gradient(45deg, var(--border-color) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--border-color) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--border-color) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--border-color) 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: var(--bg-primary);
+      border-radius: 12px;
+      padding: 20px;
+      display: inline-block;
+      border: 1px solid var(--border-color);
+    }
+    canvas {
+      max-width: 400px;
+      max-height: 400px;
+      border-radius: 8px;
+      cursor: crosshair;
+    }
+    .tolerance-value {
+      min-width: 40px;
+      text-align: center;
+      font-weight: 600;
+      color: #6366f1;
+    }
+    .mode-switch {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-primary);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .mode-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    .mode-btn.active {
+      background: #6366f1;
+      color: #fff;
+    }
+    .hint-box {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #059669;
+    }
+    .brush-cursor {
+      position: fixed;
+      border: 2px solid #10b981;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      background: rgba(16, 185, 129, 0.15);
+      display: none;
+    }
+    .brush-cursor.eraser {
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      h1 { font-size: 22px; margin-bottom: 20px; }
+      .upload-area { padding: 40px 15px; }
+      .upload-icon { font-size: 48px; }
+      .upload-text { font-size: 14px; }
+      .controls { padding: 16px; }
+      .control-row { gap: 12px; }
+      .control-group { flex-wrap: wrap; gap: 8px; }
+      .control-group label { min-width: auto; font-size: 13px; }
+      input[type="range"] { width: 100px; }
+      .btn { padding: 10px 16px; font-size: 13px; }
+      .canvas-container { gap: 20px; }
+      .canvas-wrapper h3 { font-size: 14px; }
+      canvas { max-width: 100%; max-height: 300px; }
+      .mode-switch { flex-wrap: wrap; }
+      .mode-btn { padding: 6px 12px; font-size: 12px; }
+      .thumb-item { width: 50px; height: 50px; }
+      .add-more-btn { width: 50px; height: 50px; }
+    }
+
+    @media (max-width: 480px) {
+      .control-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .control-group { width: 100%; justify-content: space-between; }
+      input[type="range"] { flex: 1; }
+      .btn { width: 100%; margin-bottom: 8px; }
+      .canvas-container { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="icon-sun">☀️</span>
+      <span class="icon-moon">🌙</span>
+    </button>
+    <a href="index.html" class="back-link">← 返回首页</a>
+    <h1>🎨 Logo 抠图工具</h1>
+
+    <div class="upload-area" id="uploadArea">
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">点击上传图片或拖拽到此处</div>
+      <input type="file" id="fileInput" accept="image/*" multiple>
+    </div>
+
+    <div class="image-list" id="imageList"></div>
+
+    <div class="controls" id="controls">
+      <div class="control-row">
+        <div class="hint-box" id="hintBox">
+          <strong>步骤1：</strong>点击背景色移除背景
+        </div>
+      </div>
+
+      <div class="control-row">
+        <div class="control-group">
+          <label>容差值：</label>
+          <input type="range" id="tolerance" min="10" max="100" value="30">
+          <span class="tolerance-value" id="toleranceValue">30</span>
+        </div>
+        <div class="control-group">
+          <label>羽化：</label>
+          <input type="range" id="feather" min="0" max="5" value="1">
+          <span class="tolerance-value" id="featherValue">1</span>
+        </div>
+      </div>
+
+      <div class="control-row" id="brushRow" style="display: none;">
+        <div class="control-group">
+          <label>画笔大小：</label>
+          <input type="range" id="brushSize" min="5" max="100" value="20">
+          <span class="tolerance-value" id="brushSizeValue">20</span>
+        </div>
+        <div class="control-group">
+          <label>工具：</label>
+          <div class="mode-switch">
+            <button class="mode-btn active" id="brushToolBtn">🖌️ 恢复</button>
+            <button class="mode-btn" id="eraserToolBtn">🧹 擦除</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <button class="btn btn-secondary" id="undoBtn" disabled>↩️ 撤销</button>
+        <button class="btn btn-secondary" id="redoBtn" disabled>↪️ 重做</button>
+        <button class="btn btn-secondary" id="resetBtn">🔄 重置</button>
+        <button class="btn btn-primary" id="enableBrushBtn" style="display: none;">🖌️ 画笔修复</button>
+        <button class="btn btn-success" id="downloadBtn">💾 下载 PNG</button>
+        <button class="btn btn-success" id="downloadAllBtn" style="display: none;">📦 下载全部</button>
+      </div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+      <div class="canvas-wrapper">
+        <h3 id="canvasTitle">原图（点击背景色）</h3>
+        <div class="canvas-box">
+          <canvas id="originalCanvas"></canvas>
+        </div>
+      </div>
+      <div class="canvas-wrapper">
+        <h3>处理结果</h3>
+        <div class="canvas-box">
+          <canvas id="resultCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brush-cursor" id="brushCursor"></div>
+
+  <script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const controls = document.getElementById('controls');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const originalCanvas = document.getElementById('originalCanvas');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const tolerance = document.getElementById('tolerance');
+    const toleranceValue = document.getElementById('toleranceValue');
+    const feather = document.getElementById('feather');
+    const featherValue = document.getElementById('featherValue');
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    const resetBtn = document.getElementById('resetBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const enableBrushBtn = document.getElementById('enableBrushBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const brushRow = document.getElementById('brushRow');
+    const hintBox = document.getElementById('hintBox');
+    const canvasTitle = document.getElementById('canvasTitle');
+    const brushToolBtn = document.getElementById('brushToolBtn');
+    const eraserToolBtn = document.getElementById('eraserToolBtn');
+    const brushCursor = document.getElementById('brushCursor');
+    const imageList = document.getElementById('imageList');
+
+    const originalCtx = originalCanvas.getContext('2d');
+    const resultCtx = resultCanvas.getContext('2d');
+
+    let originalImageData = null;
+    let resultImageData = null;  // 当前处理后的图像数据
+    let brushMode = false;
+    let isDrawing = false;
+    let currentTool = 'brush'; // 'brush' or 'eraser'
+
+    // 历史记录
+    let historyStack = [];
+    let redoStack = [];
+    const MAX_HISTORY = 30;
+
+    // 批量图片管理
+    let imageStore = [];  // { id, name, thumbnail, originalImageData, resultImageData, historyStack, redoStack, brushMode }
+    let currentImageId = null;
+
+    // 保存状态到历史记录
+    function saveState() {
+      if (!resultImageData) return;
+      // 复制当前状态
+      const stateCopy = new ImageData(
+        new Uint8ClampedArray(resultImageData.data),
+        resultImageData.width,
+        resultImageData.height
+      );
+      historyStack.push(stateCopy);
+      if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+      }
+      redoStack = []; // 清空重做栈
+      updateUndoRedoButtons();
+    }
+
+    // 撤销
+    function undo() {
+      if (historyStack.length === 0) return;
+      // 保存当前状态到重做栈
+      const currentState = new ImageData(
+        new Uint8ClampedArray(resultImageData.data),
+        resultImageData.width,
+        resultImageData.height
+      );
+      redoStack.push(currentState);
+
+      // 恢复上一个状态
+      const prevState = historyStack.pop();
+      resultImageData = prevState;
+      resultCtx.putImageData(resultImageData, 0, 0);
+      updateUndoRedoButtons();
+    }
+
+    // 重做
+    function redo() {
+      if (redoStack.length === 0) return;
+      // 保存当前状态到历史栈
+      const currentState = new ImageData(
+        new Uint8ClampedArray(resultImageData.data),
+        resultImageData.width,
+        resultImageData.height
+      );
+      historyStack.push(currentState);
+
+      // 恢复重做状态
+      const nextState = redoStack.pop();
+      resultImageData = nextState;
+      resultCtx.putImageData(resultImageData, 0, 0);
+      updateUndoRedoButtons();
+    }
+
+    // 更新按钮状态
+    function updateUndoRedoButtons() {
+      undoBtn.disabled = historyStack.length === 0;
+      redoBtn.disabled = redoStack.length === 0;
+    }
+
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
+
+    // 键盘快捷键
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    });
+
+    // 上传
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); });
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (files.length) loadImages(files);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length) loadImages(files);
+      e.target.value = ''; // 允许重复选择同一文件
+    });
+
+    // 批量加载图片
+    function loadImages(files) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const id = Date.now() + Math.random();
+            const maxSize = 600;
+            let w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+              if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+              else { w = (w / h) * maxSize; h = maxSize; }
+            }
+
+            // 创建临时canvas获取图像数据
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0, w, h);
+            const imgData = tempCtx.getImageData(0, 0, w, h);
+
+            // 创建缩略图
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = 60;
+            thumbCanvas.height = 60;
+            const thumbCtx = thumbCanvas.getContext('2d');
+            const scale = Math.max(60 / w, 60 / h);
+            const sw = w * scale, sh = h * scale;
+            thumbCtx.drawImage(img, (60 - sw) / 2, (60 - sh) / 2, sw, sh);
+            const thumbnail = thumbCanvas.toDataURL('image/png');
+
+            // 存储图片数据
+            const imageItem = {
+              id,
+              name: file.name,
+              thumbnail,
+              originalImageData: imgData,
+              resultImageData: null,
+              historyStack: [],
+              redoStack: [],
+              brushMode: false,
+              width: w,
+              height: h
+            };
+            imageStore.push(imageItem);
+
+            renderImageList();
+
+            // 自动选中第一张图片
+            if (imageStore.length === 1) {
+              switchToImage(id);
+            }
+            updateDownloadAllBtn();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 渲染图片列表
+    function renderImageList() {
+      imageList.innerHTML = '';
+
+      if (imageStore.length === 0) {
+        imageList.classList.remove('visible');
+        return;
+      }
+
+      imageList.classList.add('visible');
+      imageStore.forEach(item => {
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb-item' + (item.id === currentImageId ? ' active' : '') + (item.resultImageData ? ' processed' : '');
+        thumb.innerHTML = `
+          <img src="${item.thumbnail}" alt="${item.name}" title="${item.name}">
+          <button class="remove-btn" title="删除">×</button>
+        `;
+        thumb.querySelector('img').addEventListener('click', () => switchToImage(item.id));
+        thumb.querySelector('.remove-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeImage(item.id);
+        });
+        imageList.appendChild(thumb);
+      });
+
+      // 添加"添加更多"按钮
+      if (imageStore.length > 0) {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-more-btn';
+        addBtn.textContent = '+';
+        addBtn.title = '添加更多图片';
+        addBtn.addEventListener('click', () => fileInput.click());
+        imageList.appendChild(addBtn);
+      }
+    }
+
+    // 切换到指定图片
+    function switchToImage(id) {
+      // 保存当前图片状态
+      if (currentImageId !== null) {
+        const currentItem = imageStore.find(item => item.id === currentImageId);
+        if (currentItem) {
+          currentItem.resultImageData = resultImageData;
+          currentItem.historyStack = [...historyStack];
+          currentItem.redoStack = [...redoStack];
+          currentItem.brushMode = brushMode;
+        }
+      }
+
+      // 加载新图片
+      const newItem = imageStore.find(item => item.id === id);
+      if (!newItem) return;
+
+      currentImageId = id;
+      originalImageData = newItem.originalImageData;
+      resultImageData = newItem.resultImageData;
+      historyStack = [...newItem.historyStack];
+      redoStack = [...newItem.redoStack];
+      brushMode = newItem.brushMode;
+
+      // 设置画布大小
+      originalCanvas.width = resultCanvas.width = newItem.width;
+      originalCanvas.height = resultCanvas.height = newItem.height;
+
+      // 绘制图像
+      originalCtx.putImageData(originalImageData, 0, 0);
+      if (resultImageData) {
+        resultCtx.putImageData(resultImageData, 0, 0);
+      } else {
+        resultCtx.putImageData(originalImageData, 0, 0);
+      }
+
+      // 恢复UI状态
+      if (brushMode) {
+        brushRow.style.display = 'flex';
+        enableBrushBtn.style.display = 'none';
+        hintBox.innerHTML = '🖌️ <strong>恢复</strong>：涂抹恢复误删区域 | 🧹 <strong>擦除</strong>：涂抹删除多余区域';
+        canvasTitle.textContent = '原图（涂抹修复）';
+        originalCanvas.style.cursor = 'none';
+        resultCanvas.style.cursor = 'none';
+      } else if (resultImageData) {
+        brushRow.style.display = 'none';
+        enableBrushBtn.style.display = 'inline-block';
+        hintBox.innerHTML = '<strong>步骤2：</strong>点击「画笔修复」恢复误删的区域';
+        canvasTitle.textContent = '原图（点击背景色）';
+        originalCanvas.style.cursor = 'crosshair';
+        resultCanvas.style.cursor = 'crosshair';
+      } else {
+        brushRow.style.display = 'none';
+        enableBrushBtn.style.display = 'none';
+        hintBox.innerHTML = '<strong>步骤1：</strong>点击背景色移除背景';
+        canvasTitle.textContent = '原图（点击背景色）';
+        originalCanvas.style.cursor = 'crosshair';
+        resultCanvas.style.cursor = 'crosshair';
+      }
+
+      updateUndoRedoButtons();
+      controls.classList.add('visible');
+      canvasContainer.classList.add('visible');
+      renderImageList();
+    }
+
+    // 删除图片
+    function removeImage(id) {
+      const index = imageStore.findIndex(item => item.id === id);
+      if (index === -1) return;
+
+      imageStore.splice(index, 1);
+
+      if (imageStore.length === 0) {
+        // 没有图片了，重置界面
+        currentImageId = null;
+        originalImageData = null;
+        resultImageData = null;
+        historyStack = [];
+        redoStack = [];
+        brushMode = false;
+        controls.classList.remove('visible');
+        canvasContainer.classList.remove('visible');
+      } else if (currentImageId === id) {
+        // 当前图片被删除，切换到下一张或上一张
+        const newIndex = Math.min(index, imageStore.length - 1);
+        switchToImage(imageStore[newIndex].id);
+      }
+
+      renderImageList();
+      updateDownloadAllBtn();
+    }
+
+    // 更新下载全部按钮
+    function updateDownloadAllBtn() {
+      const processedCount = imageStore.filter(item => item.resultImageData).length;
+      downloadAllBtn.style.display = processedCount > 1 ? 'inline-block' : 'none';
+    }
+
+    // 点击移除背景 / 画笔操作（两个画布都支持）
+    originalCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+    originalCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+    originalCanvas.addEventListener('mouseup', handleMouseUp);
+    originalCanvas.addEventListener('mouseleave', handleMouseLeave);
+    originalCanvas.addEventListener('mouseenter', handleMouseEnter);
+
+    resultCanvas.addEventListener('mousedown', handleCanvasMouseDown);
+    resultCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+    resultCanvas.addEventListener('mouseup', handleMouseUp);
+    resultCanvas.addEventListener('mouseleave', handleMouseLeave);
+    resultCanvas.addEventListener('mouseenter', handleMouseEnter);
+
+    function handleMouseEnter() {
+      if (brushMode) brushCursor.style.display = 'block';
+    }
+
+    function handleMouseLeave() {
+      brushCursor.style.display = 'none';
+      if (isDrawing) {
+        isDrawing = false;
+        saveState(); // 保存画笔操作
+      }
+    }
+
+    function handleMouseUp() {
+      if (isDrawing) {
+        isDrawing = false;
+        saveState(); // 保存画笔操作
+      }
+    }
+
+    function handleCanvasMouseDown(e) {
+      if (!originalImageData) return;
+      const {x, y} = getCanvasCoords(e, e.target);
+
+      if (brushMode) {
+        isDrawing = true;
+        paint(x, y);
+      } else {
+        removeBackground(x, y);
+      }
+    }
+
+    function handleCanvasMouseMove(e) {
+      if (brushMode) {
+        updateBrushCursor(e);
+        if (isDrawing) {
+          const {x, y} = getCanvasCoords(e, e.target);
+          paint(x, y);
+        }
+      }
+    }
+
+    function getCanvasCoords(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: Math.floor((e.clientX - rect.left) * scaleX),
+        y: Math.floor((e.clientY - rect.top) * scaleY)
+      };
+    }
+
+    // 移除背景色
+    function removeBackground(clickX, clickY) {
+      const w = originalCanvas.width, h = originalCanvas.height;
+      const src = originalImageData.data;
+      const idx = (clickY * w + clickX) * 4;
+      const targetColor = { r: src[idx], g: src[idx+1], b: src[idx+2] };
+
+      const tol = parseInt(tolerance.value) * 4.41;
+      const feath = parseInt(feather.value);
+      const newData = resultCtx.createImageData(w, h);
+      const dst = newData.data;
+
+      for (let i = 0; i < src.length; i += 4) {
+        const diff = Math.sqrt(
+          (src[i] - targetColor.r) ** 2 +
+          (src[i+1] - targetColor.g) ** 2 +
+          (src[i+2] - targetColor.b) ** 2
+        );
+
+        dst[i] = src[i];
+        dst[i+1] = src[i+1];
+        dst[i+2] = src[i+2];
+
+        if (diff < tol) {
+          if (feath > 0) {
+            const ft = tol * (1 - feath / 10);
+            dst[i+3] = diff < ft ? 0 : Math.round(((diff - ft) / (tol - ft)) * 255);
+          } else {
+            dst[i+3] = 0;
+          }
+        } else {
+          dst[i+3] = 255;
+        }
+      }
+
+      resultCtx.putImageData(newData, 0, 0);
+      resultImageData = newData;
+      saveState(); // 保存移除背景操作
+
+      // 更新 imageStore
+      const currentItem = imageStore.find(item => item.id === currentImageId);
+      if (currentItem) {
+        currentItem.resultImageData = resultImageData;
+        renderImageList(); // 更新processed状态
+        updateDownloadAllBtn();
+      }
+
+      // 显示画笔按钮
+      enableBrushBtn.style.display = 'inline-block';
+      hintBox.innerHTML = '<strong>步骤2：</strong>点击「画笔修复」恢复误删的区域';
+    }
+
+    // 启用画笔模式
+    enableBrushBtn.addEventListener('click', () => {
+      brushMode = true;
+      brushRow.style.display = 'flex';
+      enableBrushBtn.style.display = 'none';
+      hintBox.innerHTML = '🖌️ <strong>恢复</strong>：涂抹恢复误删区域 | 🧹 <strong>擦除</strong>：涂抹删除多余区域';
+      canvasTitle.textContent = '原图（涂抹修复）';
+      originalCanvas.style.cursor = 'none';
+      resultCanvas.style.cursor = 'none';
+
+      // 同步到imageStore
+      const currentItem = imageStore.find(item => item.id === currentImageId);
+      if (currentItem) currentItem.brushMode = true;
+    });
+
+    // 工具切换
+    brushToolBtn.addEventListener('click', () => {
+      currentTool = 'brush';
+      brushToolBtn.classList.add('active');
+      eraserToolBtn.classList.remove('active');
+      brushCursor.classList.remove('eraser');
+    });
+    eraserToolBtn.addEventListener('click', () => {
+      currentTool = 'eraser';
+      eraserToolBtn.classList.add('active');
+      brushToolBtn.classList.remove('active');
+      brushCursor.classList.add('eraser');
+    });
+
+    // 画笔光标
+    function updateBrushCursor(e) {
+      const size = parseInt(brushSize.value) * 2;
+      brushCursor.style.width = size + 'px';
+      brushCursor.style.height = size + 'px';
+      brushCursor.style.left = e.clientX + 'px';
+      brushCursor.style.top = e.clientY + 'px';
+      brushCursor.style.display = 'block';
+    }
+
+    // 绘制
+    function paint(cx, cy) {
+      if (!resultImageData) return;
+      const w = originalCanvas.width, h = originalCanvas.height;
+      const radius = parseInt(brushSize.value);
+      const src = originalImageData.data;
+      const dst = resultImageData.data;
+
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx*dx + dy*dy <= radius*radius) {
+            const px = cx + dx, py = cy + dy;
+            if (px >= 0 && px < w && py >= 0 && py < h) {
+              const i = (py * w + px) * 4;
+              if (currentTool === 'brush') {
+                dst[i+3] = 255; // 恢复
+              } else {
+                dst[i+3] = 0;   // 擦除
+              }
+            }
+          }
+        }
+      }
+      resultCtx.putImageData(resultImageData, 0, 0);
+    }
+
+    // 画笔大小
+    brushSize.addEventListener('input', (e) => {
+      brushSizeValue.textContent = e.target.value;
+    });
+
+    // 容差/羽化变化
+    tolerance.addEventListener('input', (e) => toleranceValue.textContent = e.target.value);
+    feather.addEventListener('input', (e) => featherValue.textContent = e.target.value);
+
+    // 重置
+    resetBtn.addEventListener('click', () => {
+      if (originalImageData) {
+        resultCtx.putImageData(originalImageData, 0, 0);
+        resultImageData = null;
+        brushMode = false;
+        brushRow.style.display = 'none';
+        enableBrushBtn.style.display = 'none';
+        hintBox.innerHTML = '<strong>步骤1：</strong>点击背景色移除背景';
+        canvasTitle.textContent = '原图（点击背景色）';
+        originalCanvas.style.cursor = 'crosshair';
+        resultCanvas.style.cursor = 'crosshair';
+        brushCursor.style.display = 'none';
+        historyStack = [];
+        redoStack = [];
+        updateUndoRedoButtons();
+
+        // 同步到imageStore
+        const currentItem = imageStore.find(item => item.id === currentImageId);
+        if (currentItem) {
+          currentItem.resultImageData = null;
+          currentItem.historyStack = [];
+          currentItem.redoStack = [];
+          currentItem.brushMode = false;
+          renderImageList();
+          updateDownloadAllBtn();
+        }
+      }
+    });
+
+    // 下载当前图片
+    downloadBtn.addEventListener('click', () => {
+      const currentItem = imageStore.find(item => item.id === currentImageId);
+      const fileName = currentItem ? currentItem.name.replace(/\.[^/.]+$/, '') + '-extracted.png' : 'extracted-image.png';
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = resultCanvas.toDataURL('image/png');
+      link.click();
+    });
+
+    // 下载全部处理后的图片
+    downloadAllBtn.addEventListener('click', async () => {
+      const processedItems = imageStore.filter(item => item.resultImageData);
+      if (processedItems.length === 0) return;
+
+      // 逐个下载
+      for (let i = 0; i < processedItems.length; i++) {
+        const item = processedItems[i];
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = item.width;
+        tempCanvas.height = item.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(item.resultImageData, 0, 0);
+
+        const fileName = item.name.replace(/\.[^/.]+$/, '') + '-extracted.png';
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = tempCanvas.toDataURL('image/png');
+        link.click();
+
+        // 间隔一下避免浏览器限制
+        if (i < processedItems.length - 1) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+    });
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    }
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      if (newTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+      localStorage.setItem('theme', newTheme);
+    });
+  </script>
+</body>
+</html>

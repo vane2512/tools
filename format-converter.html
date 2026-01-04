@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>格式转换工具</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #fff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --accent-color: #6366f1;
+      --accent-hover: #4f46e5;
+      --success-color: #10b981;
+      --danger-color: #ef4444;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --accent-color: #818cf8;
+      --accent-hover: #6366f1;
+      --success-color: #34d399;
+      --danger-color: #f87171;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      min-height: 100vh;
+      color: var(--text-primary);
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { max-width: 1200px; margin: 0 auto; position: relative; }
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 32px;
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .section { margin-bottom: 40px; }
+    .section-title {
+      font-size: 18px;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      padding-left: 12px;
+      border-left: 3px solid var(--accent-color);
+      font-weight: 600;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .tool-card {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tool-card:hover {
+      transform: translateY(-4px);
+      border-color: #c7d2fe;
+      box-shadow: 0 12px 24px rgba(99, 102, 241, 0.15);
+    }
+    .tool-icon {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .tool-icon.blue { background: #e0e7ff; }
+    .tool-icon.green { background: #d1fae5; }
+    .tool-icon.orange { background: #ffedd5; }
+    .tool-icon.purple { background: #ede9fe; }
+    .tool-icon.pink { background: #fce7f3; }
+    .tool-icon.red { background: #fee2e2; }
+
+    .tool-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .tool-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .tool-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.visible { display: flex; }
+    [data-theme="dark"] .modal-overlay {
+      background: rgba(0, 0, 0, 0.7);
+    }
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { background: var(--border-color); color: var(--text-primary); }
+    .modal-body { padding: 24px; }
+
+    /* Left-Right Layout */
+    .modal-content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .modal-left {
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-right {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border-color);
+      padding-left: 24px;
+    }
+    .modal-footer {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .upload-area {
+      border: 2px dashed var(--accent-color);
+      border-radius: 16px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--bg-secondary);
+      margin-bottom: 16px;
+    }
+    .upload-area:hover {
+      border-color: var(--accent-hover);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    .upload-area.has-files {
+      border-style: solid;
+      border-color: var(--success-color);
+      background: rgba(16, 185, 129, 0.1);
+    }
+    .upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .upload-text { font-size: 14px; color: var(--text-secondary); }
+    .upload-text strong { color: var(--accent-color); }
+
+    .file-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--bg-primary);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .file-name {
+      font-size: 13px;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 10px;
+    }
+    .file-size {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-right: 10px;
+    }
+    .file-remove {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: #fee2e2;
+      color: var(--danger-color);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .file-remove:hover { background: #fecaca; }
+
+    .options-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .option-group {
+      flex: 1;
+      min-width: 150px;
+    }
+    .option-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: block;
+      font-weight: 500;
+    }
+    .option-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+
+    .quality-slider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .quality-slider input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent-color);
+    }
+    .quality-value {
+      min-width: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    .btn {
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent-color);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: var(--border-color);
+      border-radius: 3px;
+      margin-top: 16px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      border-radius: 3px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .status-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      text-align: center;
+      display: none;
+    }
+    .status-text.visible { display: block; }
+
+    .result-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      display: none;
+    }
+    .result-section.visible { display: block; }
+    .result-title {
+      font-size: 15px;
+      color: var(--success-color);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      background: #d1fae5;
+      border: 1px solid #a7f3d0;
+      border-radius: 10px;
+      color: #059669;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-top: 12px;
+    }
+    .download-btn:hover {
+      background: #a7f3d0;
+    }
+
+    /* Preview Grid */
+    .preview-section {
+      display: none;
+      flex: 1;
+    }
+    .preview-section.visible { display: flex; flex-direction: column; }
+    .empty-preview { display: block; }
+    .preview-section.visible + .result-section + .empty-preview,
+    .preview-section.visible ~ .empty-preview { display: none; }
+    .preview-title {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    .preview-title span { color: var(--accent-color); font-weight: 600; }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 10px;
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px;
+      max-height: 280px;
+    }
+    .preview-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preview-item:hover {
+      border-color: var(--accent-color);
+      transform: scale(1.02);
+    }
+    .preview-item img, .preview-item canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .preview-item .preview-name {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 4px 6px;
+      background: rgba(15, 23, 42, 0.8);
+      font-size: 10px;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preview-item .preview-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      padding: 2px 6px;
+      background: var(--accent-color);
+      border-radius: 4px;
+      font-size: 9px;
+      color: #fff;
+      font-weight: 600;
+    }
+    .preview-item.pdf-preview {
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview-item.pdf-preview .pdf-icon {
+      font-size: 32px;
+      margin-bottom: 4px;
+    }
+    .preview-item.pdf-preview .pdf-pages {
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    /* Result Preview */
+    .result-preview {
+      margin-bottom: 0;
+    }
+    .result-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .result-item {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #f0fdf4;
+      border: 1px solid #a7f3d0;
+    }
+    .result-item img, .result-item canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      background: var(--bg-primary);
+    }
+    .result-item .result-info {
+      padding: 8px;
+      background: #ecfdf5;
+    }
+    .result-item .result-name {
+      font-size: 11px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .result-item .result-size {
+      font-size: 10px;
+      color: #059669;
+      font-weight: 500;
+    }
+
+    /* Fullscreen Preview Modal */
+    .fullscreen-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 40px;
+    }
+    .fullscreen-overlay.visible { display: flex; }
+    .fullscreen-overlay img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .fullscreen-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 24px;
+      transition: all 0.2s;
+    }
+    .fullscreen-close:hover { background: rgba(255, 255, 255, 0.2); }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+    .back-link:hover { color: var(--accent-color); }
+
+    .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+    /* Mobile */
+    @media (max-width: 1024px) {
+      .tools-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      h1 { font-size: 24px; margin-bottom: 30px; }
+      .section-title { font-size: 16px; }
+      .tools-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .tool-card { padding: 12px; }
+      .tool-icon { width: 36px; height: 36px; min-width: 36px; font-size: 16px; }
+      .tool-name { font-size: 13px; }
+      .tool-desc { font-size: 11px; }
+      .modal { margin: 10px; border-radius: 16px; max-width: 100%; }
+      .modal-body { padding: 16px; }
+      .modal-content-grid { grid-template-columns: 1fr; gap: 16px; }
+      .modal-right { border-left: none; padding-left: 0; padding-top: 16px; border-top: 1px solid var(--border-color); }
+      .upload-area { padding: 24px 15px; }
+      .options-row { flex-direction: column; }
+      .empty-preview { display: none !important; }
+    }
+
+    @media (max-width: 480px) {
+      .tools-grid { grid-template-columns: 1fr; gap: 10px; }
+      .tool-card { padding: 14px; }
+      .tool-icon { width: 40px; height: 40px; min-width: 40px; font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="icon-sun">☀️</span>
+      <span class="icon-moon">🌙</span>
+    </button>
+    <a href="index.html" class="back-link">← 返回首页</a>
+    <h1>格式转换工具</h1>
+
+    <div class="section">
+      <h2 class="section-title">图片格式转换</h2>
+      <div class="tools-grid">
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="png">
+          <div class="tool-icon blue">🖼️</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 PNG</div>
+            <div class="tool-desc">JPG/WebP/GIF → PNG</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="jpg">
+          <div class="tool-icon orange">🖼️</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 JPG</div>
+            <div class="tool-desc">PNG/WebP/GIF → JPG</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="webp">
+          <div class="tool-icon green">🖼️</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 WebP</div>
+            <div class="tool-desc">PNG/JPG/GIF → WebP</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="gif">
+          <div class="tool-icon purple">🖼️</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 GIF</div>
+            <div class="tool-desc">PNG/JPG/WebP → GIF</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="ico">
+          <div class="tool-icon pink">⭐</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 ICO</div>
+            <div class="tool-desc">生成网站图标</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-convert" data-from="any" data-to="base64">
+          <div class="tool-icon red">📝</div>
+          <div class="tool-content">
+            <div class="tool-name">转为 Base64</div>
+            <div class="tool-desc">图片转文本编码</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">PDF 转换</h2>
+      <div class="tools-grid">
+        <div class="tool-card" data-tool="pdf-to-img">
+          <div class="tool-icon blue">📄</div>
+          <div class="tool-content">
+            <div class="tool-name">PDF 转图片</div>
+            <div class="tool-desc">每页导出为图片</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-to-pdf">
+          <div class="tool-icon green">📑</div>
+          <div class="tool-content">
+            <div class="tool-name">图片转 PDF</div>
+            <div class="tool-desc">多图合并为 PDF</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="merge-pdf">
+          <div class="tool-icon orange">📚</div>
+          <div class="tool-content">
+            <div class="tool-name">合并 PDF</div>
+            <div class="tool-desc">多个 PDF 合为一个</div>
+          </div>
+        </div>
+        <div class="tool-card" onclick="window.location.href='pdf-splitter.html'">
+          <div class="tool-icon purple">✂️</div>
+          <div class="tool-content">
+            <div class="tool-name">分割 PDF</div>
+            <div class="tool-desc">PDF 拆分为多个</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">图片处理</h2>
+      <div class="tools-grid">
+        <div class="tool-card" data-tool="img-compress">
+          <div class="tool-icon green">📦</div>
+          <div class="tool-content">
+            <div class="tool-name">图片压缩</div>
+            <div class="tool-desc">减小文件大小</div>
+          </div>
+        </div>
+        <div class="tool-card" data-tool="img-resize">
+          <div class="tool-icon blue">📐</div>
+          <div class="tool-content">
+            <div class="tool-name">调整尺寸</div>
+            <div class="tool-desc">批量修改图片大小</div>
+          </div>
+        </div>
+        <div class="tool-card" onclick="window.location.href='image-upscaler.html'">
+          <div class="tool-icon pink">🔍</div>
+          <div class="tool-content">
+            <div class="tool-name">图片放大</div>
+            <div class="tool-desc">智能放大增强</div>
+          </div>
+        </div>
+        <div class="tool-card" onclick="window.location.href='image-extractor.html'">
+          <div class="tool-icon purple">🎨</div>
+          <div class="tool-content">
+            <div class="tool-name">背景移除</div>
+            <div class="tool-desc">Logo 抠图工具</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modalTitle">转换工具</span>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-content-grid">
+          <!-- Left: Upload & File List -->
+          <div class="modal-left">
+            <div class="upload-area" id="uploadArea">
+              <div class="upload-icon">📁</div>
+              <div class="upload-text">点击上传或拖拽文件到此处<br><strong id="acceptHint">支持 PNG, JPG, WebP, GIF</strong></div>
+              <input type="file" id="fileInput" multiple hidden>
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div class="options-row" id="optionsRow">
+              <div class="option-group" id="formatGroup" style="display:none;">
+                <label class="option-label">输出格式</label>
+                <select class="option-select" id="outputFormat">
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                  <option value="webp">WebP</option>
+                </select>
+              </div>
+              <div class="option-group" id="qualityGroup" style="display:none;">
+                <label class="option-label">输出质量</label>
+                <div class="quality-slider">
+                  <input type="range" id="quality" min="10" max="100" value="85">
+                  <span class="quality-value" id="qualityValue">85%</span>
+                </div>
+              </div>
+              <div class="option-group" id="scaleGroup" style="display:none;">
+                <label class="option-label">缩放比例</label>
+                <select class="option-select" id="scaleRatio">
+                  <option value="1">原始大小</option>
+                  <option value="0.75">75%</option>
+                  <option value="0.5">50%</option>
+                  <option value="0.25">25%</option>
+                  <option value="custom">自定义尺寸</option>
+                </select>
+              </div>
+              <div class="option-group" id="customSizeGroup" style="display:none;">
+                <label class="option-label">自定义宽度 (px)</label>
+                <input type="number" class="option-select" id="customWidth" placeholder="宽度" min="1" max="10000">
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Preview & Result -->
+          <div class="modal-right">
+            <div class="preview-section" id="previewSection">
+              <div class="preview-title">预览 <span id="previewCount">0 个文件</span></div>
+              <div class="preview-grid" id="previewGrid"></div>
+            </div>
+
+            <div class="result-section" id="resultSection">
+              <div class="result-title">✅ 转换完成</div>
+              <div class="result-preview" id="resultPreview">
+                <div class="result-preview-grid" id="resultPreviewGrid"></div>
+              </div>
+            </div>
+
+            <div class="empty-preview" id="emptyPreview">
+              <div style="color: var(--text-muted); text-align: center; padding: 60px 20px;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🖼️</div>
+                <div>上传文件后这里会显示预览</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer: Button & Progress -->
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="convertBtn" disabled>开始转换</button>
+
+          <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="status-text" id="statusText"></div>
+
+          <a class="download-btn" id="downloadBtn" download style="display: none;">
+            <span>💾</span>
+            <span id="downloadText">下载文件</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Preview -->
+  <div class="fullscreen-overlay" id="fullscreenOverlay">
+    <button class="fullscreen-close" id="fullscreenClose">×</button>
+    <img id="fullscreenImage" src="" alt="Preview">
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    }
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      if (newTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+      localStorage.setItem('theme', newTheme);
+    });
+
+    // DOM Elements
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalClose = document.getElementById('modalClose');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const acceptHint = document.getElementById('acceptHint');
+    const convertBtn = document.getElementById('convertBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const statusText = document.getElementById('statusText');
+    const resultSection = document.getElementById('resultSection');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadText = document.getElementById('downloadText');
+    const quality = document.getElementById('quality');
+    const qualityValue = document.getElementById('qualityValue');
+    const qualityGroup = document.getElementById('qualityGroup');
+    const formatGroup = document.getElementById('formatGroup');
+    const outputFormat = document.getElementById('outputFormat');
+    const scaleGroup = document.getElementById('scaleGroup');
+    const scaleRatio = document.getElementById('scaleRatio');
+    const customSizeGroup = document.getElementById('customSizeGroup');
+    const customWidth = document.getElementById('customWidth');
+    const previewSection = document.getElementById('previewSection');
+    const previewGrid = document.getElementById('previewGrid');
+    const previewCount = document.getElementById('previewCount');
+    const resultPreviewGrid = document.getElementById('resultPreviewGrid');
+    const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+    const fullscreenImage = document.getElementById('fullscreenImage');
+    const fullscreenClose = document.getElementById('fullscreenClose');
+    const emptyPreview = document.getElementById('emptyPreview');
+
+    let currentTool = null;
+    let currentFiles = [];
+    let targetFormat = 'png';
+    let convertedResults = [];
+
+    // Tool card click handlers
+    document.querySelectorAll('.tool-card[data-tool]').forEach(card => {
+      card.addEventListener('click', () => {
+        const tool = card.dataset.tool;
+        const to = card.dataset.to;
+        openModal(tool, to);
+      });
+    });
+
+    function openModal(tool, to) {
+      currentTool = tool;
+      targetFormat = to || 'png';
+      currentFiles = [];
+      convertedResults = [];
+      fileList.innerHTML = '';
+      uploadArea.classList.remove('has-files');
+      convertBtn.disabled = true;
+      resultSection.classList.remove('visible');
+      progressBar.classList.remove('visible');
+      statusText.classList.remove('visible');
+      previewSection.classList.remove('visible');
+      previewGrid.innerHTML = '';
+      resultPreviewGrid.innerHTML = '';
+      emptyPreview.style.display = 'block';
+      downloadBtn.style.display = 'none';
+
+      // Reset options
+      formatGroup.style.display = 'none';
+      qualityGroup.style.display = 'none';
+      scaleGroup.style.display = 'none';
+      customSizeGroup.style.display = 'none';
+
+      // Configure based on tool
+      switch(tool) {
+        case 'img-convert':
+          modalTitle.textContent = `转换为 ${to.toUpperCase()}`;
+          fileInput.accept = 'image/*';
+          acceptHint.textContent = '支持 PNG, JPG, WebP, GIF, BMP';
+          if (['jpg', 'webp'].includes(to)) {
+            qualityGroup.style.display = 'block';
+          }
+          break;
+        case 'pdf-to-img':
+          modalTitle.textContent = 'PDF 转图片';
+          fileInput.accept = '.pdf';
+          acceptHint.textContent = '支持 PDF 文件';
+          formatGroup.style.display = 'block';
+          qualityGroup.style.display = 'block';
+          break;
+        case 'img-to-pdf':
+          modalTitle.textContent = '图片转 PDF';
+          fileInput.accept = 'image/*';
+          acceptHint.textContent = '支持 PNG, JPG, WebP, GIF';
+          break;
+        case 'merge-pdf':
+          modalTitle.textContent = '合并 PDF';
+          fileInput.accept = '.pdf';
+          acceptHint.textContent = '选择多个 PDF 文件';
+          break;
+        case 'img-compress':
+          modalTitle.textContent = '图片压缩';
+          fileInput.accept = 'image/*';
+          acceptHint.textContent = '支持 PNG, JPG, WebP';
+          qualityGroup.style.display = 'block';
+          quality.value = 70;
+          qualityValue.textContent = '70%';
+          break;
+        case 'img-resize':
+          modalTitle.textContent = '调整图片尺寸';
+          fileInput.accept = 'image/*';
+          acceptHint.textContent = '支持 PNG, JPG, WebP, GIF';
+          scaleGroup.style.display = 'block';
+          break;
+      }
+
+      modalOverlay.classList.add('visible');
+    }
+
+    // Close modal
+    modalClose.addEventListener('click', () => {
+      modalOverlay.classList.remove('visible');
+    });
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) modalOverlay.classList.remove('visible');
+    });
+
+    // File upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => e.preventDefault());
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      handleFiles(Array.from(e.dataTransfer.files));
+    });
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(Array.from(e.target.files));
+      e.target.value = '';
+    });
+
+    function handleFiles(files) {
+      files.forEach(file => {
+        if (!currentFiles.find(f => f.name === file.name)) {
+          currentFiles.push(file);
+        }
+      });
+      renderFileList();
+    }
+
+    function renderFileList() {
+      if (currentFiles.length === 0) {
+        fileList.innerHTML = '';
+        uploadArea.classList.remove('has-files');
+        convertBtn.disabled = true;
+        previewSection.classList.remove('visible');
+        previewGrid.innerHTML = '';
+        emptyPreview.style.display = 'block';
+        return;
+      }
+
+      uploadArea.classList.add('has-files');
+      convertBtn.disabled = false;
+      emptyPreview.style.display = 'none';
+
+      fileList.innerHTML = currentFiles.map((file, i) => `
+        <div class="file-item">
+          <span class="file-name">${file.name}</span>
+          <span class="file-size">${formatSize(file.size)}</span>
+          <button class="file-remove" data-index="${i}">×</button>
+        </div>
+      `).join('');
+
+      fileList.querySelectorAll('.file-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentFiles.splice(parseInt(btn.dataset.index), 1);
+          renderFileList();
+        });
+      });
+
+      // Render previews
+      renderPreviews();
+    }
+
+    // Render file previews
+    async function renderPreviews() {
+      previewGrid.innerHTML = '';
+      previewCount.textContent = `${currentFiles.length} 个文件`;
+      previewSection.classList.add('visible');
+
+      for (const file of currentFiles) {
+        const item = document.createElement('div');
+        item.className = 'preview-item';
+
+        if (file.type === 'application/pdf') {
+          // PDF preview
+          item.className += ' pdf-preview';
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const scale = 0.5;
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+
+            item.className = 'preview-item';
+            item.innerHTML = `<div class="preview-name">${file.name}</div>
+              <div class="preview-badge">${pdf.numPages}页</div>`;
+            item.insertBefore(canvas, item.firstChild);
+
+            // Click to view fullscreen
+            const dataUrl = canvas.toDataURL();
+            item.addEventListener('click', () => showFullscreen(dataUrl));
+          } catch (e) {
+            item.innerHTML = `
+              <div class="pdf-icon">📄</div>
+              <div class="pdf-pages">${file.name}</div>
+            `;
+          }
+        } else if (file.type.startsWith('image/')) {
+          // Image preview
+          const url = URL.createObjectURL(file);
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = file.name;
+          item.appendChild(img);
+
+          const nameLabel = document.createElement('div');
+          nameLabel.className = 'preview-name';
+          nameLabel.textContent = file.name;
+          item.appendChild(nameLabel);
+
+          // Get image dimensions
+          img.onload = () => {
+            const badge = document.createElement('div');
+            badge.className = 'preview-badge';
+            badge.textContent = `${img.naturalWidth}×${img.naturalHeight}`;
+            item.appendChild(badge);
+          };
+
+          item.addEventListener('click', () => showFullscreen(url));
+        }
+
+        previewGrid.appendChild(item);
+      }
+    }
+
+    // Render result previews
+    function renderResultPreviews(results) {
+      resultPreviewGrid.innerHTML = '';
+
+      if (!results || results.length === 0) return;
+
+      results.forEach(result => {
+        if (!result.blob && !result.data) return;
+
+        const item = document.createElement('div');
+        item.className = 'result-item';
+
+        if (result.blob && result.blob.type && result.blob.type.startsWith('image/')) {
+          const url = URL.createObjectURL(result.blob);
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = result.name;
+          item.appendChild(img);
+
+          const info = document.createElement('div');
+          info.className = 'result-info';
+          info.innerHTML = `
+            <div class="result-name">${result.name}</div>
+            <div class="result-size">${formatSize(result.blob.size)}</div>
+          `;
+          item.appendChild(info);
+          item.style.cursor = 'pointer';
+          item.addEventListener('click', () => showFullscreen(url));
+        } else if (result.blob && result.blob.type === 'application/pdf') {
+          // PDF result preview
+          item.innerHTML = `
+            <div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:40px;background:rgba(0,0,0,0.2);">📄</div>
+            <div class="result-info">
+              <div class="result-name">${result.name}</div>
+              <div class="result-size">${formatSize(result.blob.size)}</div>
+            </div>
+          `;
+        } else if (result.data) {
+          // Base64 result
+          item.innerHTML = `
+            <div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:40px;background:rgba(0,0,0,0.2);">📝</div>
+            <div class="result-info">
+              <div class="result-name">${result.name}</div>
+              <div class="result-size">${formatSize(result.data.length)}</div>
+            </div>
+          `;
+        }
+
+        resultPreviewGrid.appendChild(item);
+      });
+    }
+
+    // Fullscreen preview
+    function showFullscreen(src) {
+      fullscreenImage.src = src;
+      fullscreenOverlay.classList.add('visible');
+    }
+
+    fullscreenClose.addEventListener('click', () => {
+      fullscreenOverlay.classList.remove('visible');
+    });
+    fullscreenOverlay.addEventListener('click', (e) => {
+      if (e.target === fullscreenOverlay) fullscreenOverlay.classList.remove('visible');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fullscreenOverlay.classList.contains('visible')) {
+        fullscreenOverlay.classList.remove('visible');
+      }
+    });
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Quality slider
+    quality.addEventListener('input', () => {
+      qualityValue.textContent = quality.value + '%';
+    });
+
+    // Scale ratio
+    scaleRatio.addEventListener('change', () => {
+      customSizeGroup.style.display = scaleRatio.value === 'custom' ? 'block' : 'none';
+    });
+
+    // Convert button
+    convertBtn.addEventListener('click', async () => {
+      if (currentFiles.length === 0) return;
+
+      convertBtn.disabled = true;
+      progressBar.classList.add('visible');
+      statusText.classList.add('visible');
+      resultSection.classList.remove('visible');
+
+      try {
+        let result;
+        switch(currentTool) {
+          case 'img-convert':
+            result = await convertImages();
+            break;
+          case 'pdf-to-img':
+            result = await pdfToImages();
+            break;
+          case 'img-to-pdf':
+            result = await imagesToPdf();
+            break;
+          case 'merge-pdf':
+            result = await mergePdfs();
+            break;
+          case 'img-compress':
+            result = await compressImages();
+            break;
+          case 'img-resize':
+            result = await resizeImages();
+            break;
+        }
+
+        downloadBtn.href = result.url;
+        downloadBtn.download = result.filename;
+        downloadText.textContent = `下载 ${result.filename}`;
+        downloadBtn.style.display = 'flex';
+
+        // Render result previews
+        if (result.previews && result.previews.length > 0) {
+          renderResultPreviews(result.previews);
+        }
+
+        resultSection.classList.add('visible');
+        progressFill.style.width = '100%';
+        statusText.textContent = '转换完成！';
+      } catch (error) {
+        console.error(error);
+        statusText.textContent = '转换失败: ' + error.message;
+      }
+
+      convertBtn.disabled = false;
+    });
+
+    // Convert images to target format
+    async function convertImages() {
+      const results = [];
+      const total = currentFiles.length;
+      const q = parseInt(quality.value) / 100;
+
+      for (let i = 0; i < total; i++) {
+        statusText.textContent = `处理中 ${i + 1}/${total}...`;
+        progressFill.style.width = ((i + 1) / total * 80) + '%';
+
+        const file = currentFiles[i];
+        const img = await loadImage(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+
+        // White background for JPG
+        if (targetFormat === 'jpg') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0);
+
+        let blob;
+        if (targetFormat === 'base64') {
+          const base64 = canvas.toDataURL('image/png');
+          results.push({ name: file.name.replace(/\.[^.]+$/, '.txt'), data: base64 });
+          continue;
+        } else if (targetFormat === 'ico') {
+          // Create ICO by resizing to 32x32
+          const icoCanvas = document.createElement('canvas');
+          icoCanvas.width = 32;
+          icoCanvas.height = 32;
+          const icoCtx = icoCanvas.getContext('2d');
+          icoCtx.drawImage(img, 0, 0, 32, 32);
+          blob = await new Promise(r => icoCanvas.toBlob(r, 'image/png'));
+        } else {
+          const mimeType = targetFormat === 'jpg' ? 'image/jpeg' : `image/${targetFormat}`;
+          blob = await new Promise(r => canvas.toBlob(r, mimeType, q));
+        }
+
+        const ext = targetFormat === 'jpg' ? 'jpg' : targetFormat;
+        results.push({ name: file.name.replace(/\.[^.]+$/, `.${ext}`), blob });
+      }
+
+      // Return result
+      if (targetFormat === 'base64') {
+        const text = results.map(r => `/* ${r.name} */\n${r.data}`).join('\n\n');
+        const blob = new Blob([text], { type: 'text/plain' });
+        return { url: URL.createObjectURL(blob), filename: 'base64.txt', previews: results };
+      }
+
+      if (results.length === 1) {
+        return { url: URL.createObjectURL(results[0].blob), filename: results[0].name, previews: results };
+      }
+
+      // Multiple files -> ZIP
+      statusText.textContent = '打包中...';
+      const zip = new JSZip();
+      results.forEach(r => zip.file(r.name, r.blob));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      return { url: URL.createObjectURL(zipBlob), filename: `converted_${targetFormat}.zip`, previews: results };
+    }
+
+    // PDF to images
+    async function pdfToImages() {
+      const format = outputFormat.value;
+      const q = parseInt(quality.value) / 100;
+      const results = [];
+
+      for (let fi = 0; fi < currentFiles.length; fi++) {
+        const file = currentFiles[fi];
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = pdf.numPages;
+
+        for (let p = 1; p <= totalPages; p++) {
+          statusText.textContent = `处理 ${file.name} 第 ${p}/${totalPages} 页...`;
+          progressFill.style.width = ((fi * totalPages + p) / (currentFiles.length * totalPages) * 80) + '%';
+
+          const page = await pdf.getPage(p);
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+
+          if (format === 'jpg') {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+
+          const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+          const blob = await new Promise(r => canvas.toBlob(r, mimeType, q));
+          const baseName = file.name.replace('.pdf', '');
+          results.push({ name: `${baseName}_page${p}.${format}`, blob });
+        }
+      }
+
+      if (results.length === 1) {
+        return { url: URL.createObjectURL(results[0].blob), filename: results[0].name, previews: results };
+      }
+
+      statusText.textContent = '打包中...';
+      const zip = new JSZip();
+      results.forEach(r => zip.file(r.name, r.blob));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      return { url: URL.createObjectURL(zipBlob), filename: 'pdf_images.zip', previews: results };
+    }
+
+    // Images to PDF
+    async function imagesToPdf() {
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+
+      for (let i = 0; i < currentFiles.length; i++) {
+        statusText.textContent = `处理 ${i + 1}/${currentFiles.length}...`;
+        progressFill.style.width = ((i + 1) / currentFiles.length * 80) + '%';
+
+        const file = currentFiles[i];
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+
+        let image;
+        if (file.type === 'image/png') {
+          image = await pdfDoc.embedPng(uint8Array);
+        } else if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+          image = await pdfDoc.embedJpg(uint8Array);
+        } else {
+          // Convert other formats to PNG first
+          const img = await loadImage(file);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const pngBlob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+          const pngBuffer = await pngBlob.arrayBuffer();
+          image = await pdfDoc.embedPng(new Uint8Array(pngBuffer));
+        }
+
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+      }
+
+      statusText.textContent = '生成 PDF...';
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      return { url: URL.createObjectURL(blob), filename: 'images.pdf', previews: [{ name: 'images.pdf', blob }] };
+    }
+
+    // Merge PDFs
+    async function mergePdfs() {
+      const { PDFDocument } = PDFLib;
+      const mergedPdf = await PDFDocument.create();
+
+      for (let i = 0; i < currentFiles.length; i++) {
+        statusText.textContent = `合并 ${i + 1}/${currentFiles.length}...`;
+        progressFill.style.width = ((i + 1) / currentFiles.length * 80) + '%';
+
+        const file = currentFiles[i];
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await PDFDocument.load(arrayBuffer);
+        const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        pages.forEach(page => mergedPdf.addPage(page));
+      }
+
+      statusText.textContent = '生成 PDF...';
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      return { url: URL.createObjectURL(blob), filename: 'merged.pdf', previews: [{ name: 'merged.pdf', blob }] };
+    }
+
+    // Compress images
+    async function compressImages() {
+      const results = [];
+      const total = currentFiles.length;
+      const q = parseInt(quality.value) / 100;
+
+      for (let i = 0; i < total; i++) {
+        statusText.textContent = `压缩 ${i + 1}/${total}...`;
+        progressFill.style.width = ((i + 1) / total * 80) + '%';
+
+        const file = currentFiles[i];
+        const img = await loadImage(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Always output as JPEG for better compression
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', q));
+        results.push({ name: file.name.replace(/\.[^.]+$/, '_compressed.jpg'), blob });
+      }
+
+      if (results.length === 1) {
+        return { url: URL.createObjectURL(results[0].blob), filename: results[0].name, previews: results };
+      }
+
+      statusText.textContent = '打包中...';
+      const zip = new JSZip();
+      results.forEach(r => zip.file(r.name, r.blob));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      return { url: URL.createObjectURL(zipBlob), filename: 'compressed.zip', previews: results };
+    }
+
+    // Resize images
+    async function resizeImages() {
+      const results = [];
+      const total = currentFiles.length;
+      const ratio = scaleRatio.value === 'custom' ? null : parseFloat(scaleRatio.value);
+      const targetWidth = scaleRatio.value === 'custom' ? parseInt(customWidth.value) : null;
+
+      for (let i = 0; i < total; i++) {
+        statusText.textContent = `调整 ${i + 1}/${total}...`;
+        progressFill.style.width = ((i + 1) / total * 80) + '%';
+
+        const file = currentFiles[i];
+        const img = await loadImage(file);
+        const canvas = document.createElement('canvas');
+
+        if (ratio) {
+          canvas.width = Math.round(img.width * ratio);
+          canvas.height = Math.round(img.height * ratio);
+        } else if (targetWidth) {
+          canvas.width = targetWidth;
+          canvas.height = Math.round(img.height * (targetWidth / img.width));
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        results.push({ name: file.name.replace(/\.[^.]+$/, '_resized.png'), blob });
+      }
+
+      if (results.length === 1) {
+        return { url: URL.createObjectURL(results[0].blob), filename: results[0].name, previews: results };
+      }
+
+      statusText.textContent = '打包中...';
+      const zip = new JSZip();
+      results.forEach(r => zip.file(r.name, r.blob));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      return { url: URL.createObjectURL(zipBlob), filename: 'resized.zip', previews: results };
+    }
+
+    // Helper: load image
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+  </script>
+</body>
+</html>

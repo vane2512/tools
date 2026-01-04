@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF 切割工具</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #fff;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --accent-color: #6366f1;
+      --accent-hover: #4f46e5;
+      --success-color: #10b981;
+      --danger-color: #ef4444;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #334155;
+      --accent-color: #818cf8;
+      --accent-hover: #6366f1;
+      --success-color: #34d399;
+      --danger-color: #f87171;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      min-height: 100vh;
+      color: var(--text-primary);
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { max-width: 1200px; margin: 0 auto; position: relative; }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 20px;
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+    .back-link:hover { color: var(--accent-color); }
+
+    .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+      color: var(--text-primary);
+    }
+    .upload-area {
+      border: 3px dashed var(--accent-color);
+      border-radius: 16px;
+      padding: 60px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--bg-secondary);
+      margin-bottom: 30px;
+    }
+    .upload-area:hover { border-color: var(--accent-hover); background: rgba(99, 102, 241, 0.1); }
+    .upload-area.hidden { display: none; }
+    .upload-icon { font-size: 64px; margin-bottom: 16px; }
+    .upload-text { font-size: 18px; color: var(--text-secondary); }
+    #fileInput { display: none; }
+
+    .main-content {
+      display: none;
+      gap: 30px;
+    }
+    .main-content.visible { display: flex; }
+
+    .preview-section {
+      flex: 1;
+      min-width: 0;
+    }
+    .sidebar {
+      width: 360px;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .file-info {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .file-name {
+      font-weight: 600;
+      color: var(--accent-color);
+    }
+    .page-count {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+    .btn-change {
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-change:hover { background: var(--bg-primary); border-color: var(--accent-color); color: var(--accent-color); }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 16px;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .preview-grid::-webkit-scrollbar { width: 8px; }
+    .preview-grid::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 4px; }
+    .preview-grid::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 4px; }
+
+    .page-item {
+      position: relative;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid var(--border-color);
+    }
+    .page-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); }
+    .page-item.selected { border-color: #6366f1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
+    .page-item.in-range { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
+    .page-item canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .page-number {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 41, 59, 0.8);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .page-check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      background: #6366f1;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #fff;
+    }
+    .page-item.selected .page-check,
+    .page-item.in-range .page-check { display: flex; }
+    .page-item.in-range .page-check { background: #10b981; }
+
+    .split-panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .range-input-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .range-input {
+      flex: 1;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      text-align: center;
+    }
+    .range-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+    .range-sep { color: var(--text-secondary); font-weight: 600; }
+    .range-name {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .range-name:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+    .range-name::placeholder { color: var(--text-muted); }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+      width: 100%;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: #6366f1;
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #4f46e5;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    .btn-success {
+      background: #10b981;
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg-primary); border-color: var(--accent-color); color: var(--accent-color); }
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .split-list {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .split-list::-webkit-scrollbar { width: 6px; }
+    .split-list::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 3px; }
+    .split-list::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+
+    .split-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      transition: all 0.2s;
+    }
+    .split-item:hover { background: var(--bg-secondary); border-color: var(--accent-color); }
+    .split-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .split-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .split-range {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .split-remove {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    .split-remove:hover { background: rgba(239, 68, 68, 0.2); }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .action-buttons .btn { flex: 1; }
+
+    .hint-box {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #6366f1;
+      margin-bottom: 16px;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(248, 250, 252, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .loading-overlay.visible { display: flex; }
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--text-secondary); font-size: 16px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+    .selection-hint {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      color: #10b981;
+      font-size: 14px;
+    }
+    .selection-hint.hidden { display: none; }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      h1 { font-size: 22px; margin-bottom: 20px; }
+      .upload-area { padding: 40px 15px; }
+      .upload-icon { font-size: 48px; }
+      .upload-text { font-size: 14px; }
+      .main-content { flex-direction: column; gap: 20px; }
+      .sidebar { width: 100%; }
+      .preview-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 12px;
+        max-height: 300px;
+      }
+      .file-info { flex-direction: column; gap: 10px; text-align: center; }
+      .split-panel { padding: 16px; }
+      .range-input-group { flex-wrap: wrap; }
+      .range-input { min-width: 80px; }
+      .btn { padding: 10px 16px; font-size: 13px; }
+      .action-buttons { flex-direction: column; }
+      .action-buttons .btn { width: 100%; }
+      .split-item { flex-direction: column; gap: 10px; align-items: flex-start; }
+      .selection-hint { font-size: 12px; gap: 10px; }
+    }
+
+    @media (max-width: 480px) {
+      .preview-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 8px;
+      }
+      .page-number { font-size: 10px; padding: 2px 6px; }
+      .page-check { width: 18px; height: 18px; font-size: 10px; }
+      .hint-box { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <span class="icon-sun">☀️</span>
+      <span class="icon-moon">🌙</span>
+    </button>
+    <a href="index.html" class="back-link">← 返回首页</a>
+    <h1>PDF 切割工具</h1>
+
+    <div class="upload-area" id="uploadArea">
+      <div class="upload-icon">📄</div>
+      <div class="upload-text">点击上传 PDF 或拖拽到此处</div>
+      <input type="file" id="fileInput" accept=".pdf">
+    </div>
+
+    <div class="main-content" id="mainContent">
+      <div class="preview-section">
+        <div class="file-info">
+          <div>
+            <span class="file-name" id="fileName">document.pdf</span>
+            <span class="page-count" id="pageCount">共 0 页</span>
+          </div>
+          <button class="btn-change" id="changeFileBtn">更换文件</button>
+        </div>
+
+        <div class="selection-hint hidden" id="selectionHint">
+          <span>点击选择起始页，再点击选择结束页来设置页面范围</span>
+        </div>
+
+        <div class="preview-grid" id="previewGrid"></div>
+      </div>
+
+      <div class="sidebar">
+        <div class="split-panel">
+          <div class="section-title">添加切割范围</div>
+
+          <div class="hint-box">
+            点击预览页面选择范围，或手动输入页码
+          </div>
+
+          <div class="range-input-group">
+            <input type="number" class="range-input" id="startPage" placeholder="起始页" min="1">
+            <span class="range-sep">—</span>
+            <input type="number" class="range-input" id="endPage" placeholder="结束页" min="1">
+          </div>
+
+          <input type="text" class="range-name" id="splitName" placeholder="文件名（可选，如：第一章）">
+
+          <button class="btn btn-primary" id="addSplitBtn">添加到列表</button>
+
+          <div class="split-list" id="splitList">
+            <div class="empty-state">
+              <div class="empty-icon">📋</div>
+              <div>暂无切割任务</div>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button class="btn btn-secondary" id="clearAllBtn" disabled>清空列表</button>
+            <button class="btn btn-success" id="exportBtn" disabled>打包下载 ZIP</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">正在处理...</div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const mainContent = document.getElementById('mainContent');
+    const fileName = document.getElementById('fileName');
+    const pageCount = document.getElementById('pageCount');
+    const changeFileBtn = document.getElementById('changeFileBtn');
+    const previewGrid = document.getElementById('previewGrid');
+    const startPageInput = document.getElementById('startPage');
+    const endPageInput = document.getElementById('endPage');
+    const splitName = document.getElementById('splitName');
+    const addSplitBtn = document.getElementById('addSplitBtn');
+    const splitList = document.getElementById('splitList');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const selectionHint = document.getElementById('selectionHint');
+
+    let pdfDoc = null;
+    let pdfArrayBuffer = null;
+    let totalPages = 0;
+    let splitTasks = [];
+    let selectionStart = null;
+    let currentFileName = '';
+
+    // 上传处理
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.style.borderColor = '#4f46e5'; });
+    uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#6366f1'; });
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = '#6366f1';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') loadPDF(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) loadPDF(file);
+    });
+    changeFileBtn.addEventListener('click', () => fileInput.click());
+
+    // 加载PDF
+    async function loadPDF(file) {
+      showLoading('正在加载 PDF...');
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        pdfArrayBuffer = arrayBuffer.slice(0);
+        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        totalPages = pdfDoc.numPages;
+        currentFileName = file.name.replace(/\.pdf$/i, '');
+
+        fileName.textContent = file.name;
+        pageCount.textContent = `共 ${totalPages} 页`;
+        startPageInput.max = totalPages;
+        endPageInput.max = totalPages;
+
+        uploadArea.classList.add('hidden');
+        mainContent.classList.add('visible');
+
+        await renderPreviews();
+        hideLoading();
+      } catch (error) {
+        hideLoading();
+        alert('PDF 加载失败: ' + error.message);
+      }
+    }
+
+    // 渲染预览
+    async function renderPreviews() {
+      previewGrid.innerHTML = '';
+
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const scale = 0.5;
+        const viewport = page.getViewport({ scale });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        const pageItem = document.createElement('div');
+        pageItem.className = 'page-item';
+        pageItem.dataset.page = i;
+        pageItem.innerHTML = `
+          <div class="page-check">✓</div>
+          <span class="page-number">${i}</span>
+        `;
+        pageItem.insertBefore(canvas, pageItem.firstChild);
+        pageItem.addEventListener('click', () => handlePageClick(i, pageItem));
+
+        previewGrid.appendChild(pageItem);
+      }
+    }
+
+    // 页面点击处理
+    function handlePageClick(pageNum, element) {
+      if (selectionStart === null) {
+        // 第一次点击 - 设置起始页
+        selectionStart = pageNum;
+        startPageInput.value = pageNum;
+        endPageInput.value = '';
+        updatePageSelection();
+        selectionHint.classList.remove('hidden');
+        selectionHint.querySelector('span').textContent = `已选择起始页 ${pageNum}，点击另一页设置结束页`;
+      } else {
+        // 第二次点击 - 设置结束页
+        const start = Math.min(selectionStart, pageNum);
+        const end = Math.max(selectionStart, pageNum);
+        startPageInput.value = start;
+        endPageInput.value = end;
+        selectionStart = null;
+        updatePageSelection();
+        selectionHint.classList.add('hidden');
+      }
+    }
+
+    // 更新页面选择状态
+    function updatePageSelection() {
+      const start = parseInt(startPageInput.value) || 0;
+      const end = parseInt(endPageInput.value) || 0;
+
+      document.querySelectorAll('.page-item').forEach(item => {
+        const page = parseInt(item.dataset.page);
+        item.classList.remove('selected', 'in-range');
+
+        if (selectionStart !== null && page === selectionStart) {
+          item.classList.add('selected');
+        } else if (start && end && page >= start && page <= end) {
+          item.classList.add('in-range');
+        } else if (start && !end && page === start) {
+          item.classList.add('selected');
+        }
+      });
+    }
+
+    // 输入框变化时更新
+    startPageInput.addEventListener('input', () => {
+      selectionStart = null;
+      selectionHint.classList.add('hidden');
+      updatePageSelection();
+    });
+    endPageInput.addEventListener('input', () => {
+      selectionStart = null;
+      selectionHint.classList.add('hidden');
+      updatePageSelection();
+    });
+
+    // 添加切割任务
+    addSplitBtn.addEventListener('click', () => {
+      const start = parseInt(startPageInput.value);
+      const end = parseInt(endPageInput.value);
+
+      if (!start || !end) {
+        alert('请输入起始页和结束页');
+        return;
+      }
+      if (start > end) {
+        alert('起始页不能大于结束页');
+        return;
+      }
+      if (start < 1 || end > totalPages) {
+        alert(`页码范围必须在 1 到 ${totalPages} 之间`);
+        return;
+      }
+
+      const name = splitName.value.trim() || `${currentFileName}_${start}-${end}`;
+
+      splitTasks.push({ start, end, name });
+      renderSplitList();
+
+      // 清空输入
+      startPageInput.value = '';
+      endPageInput.value = '';
+      splitName.value = '';
+      selectionStart = null;
+      updatePageSelection();
+    });
+
+    // 渲染切割列表
+    function renderSplitList() {
+      if (splitTasks.length === 0) {
+        splitList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div>暂无切割任务</div>
+          </div>
+        `;
+        clearAllBtn.disabled = true;
+        exportBtn.disabled = true;
+        return;
+      }
+
+      splitList.innerHTML = splitTasks.map((task, index) => `
+        <div class="split-item">
+          <div class="split-info">
+            <span class="split-name">${task.name}.pdf</span>
+            <span class="split-range">第 ${task.start} 页 — 第 ${task.end} 页 (共 ${task.end - task.start + 1} 页)</span>
+          </div>
+          <button class="split-remove" data-index="${index}">×</button>
+        </div>
+      `).join('');
+
+      // 绑定删除事件
+      splitList.querySelectorAll('.split-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const index = parseInt(btn.dataset.index);
+          splitTasks.splice(index, 1);
+          renderSplitList();
+        });
+      });
+
+      clearAllBtn.disabled = false;
+      exportBtn.disabled = false;
+    }
+
+    // 清空列表
+    clearAllBtn.addEventListener('click', () => {
+      if (confirm('确定要清空所有切割任务吗？')) {
+        splitTasks = [];
+        renderSplitList();
+      }
+    });
+
+    // 导出 ZIP
+    exportBtn.addEventListener('click', async () => {
+      if (splitTasks.length === 0) return;
+
+      showLoading('正在生成 PDF 文件...');
+
+      try {
+        const zip = new JSZip();
+        const { PDFDocument } = PDFLib;
+
+        for (let i = 0; i < splitTasks.length; i++) {
+          const task = splitTasks[i];
+          loadingText.textContent = `正在处理: ${task.name}.pdf (${i + 1}/${splitTasks.length})`;
+
+          const srcDoc = await PDFDocument.load(pdfArrayBuffer);
+          const newDoc = await PDFDocument.create();
+
+          const pageIndices = [];
+          for (let p = task.start - 1; p < task.end; p++) {
+            pageIndices.push(p);
+          }
+
+          const pages = await newDoc.copyPages(srcDoc, pageIndices);
+          pages.forEach(page => newDoc.addPage(page));
+
+          const pdfBytes = await newDoc.save();
+          zip.file(`${task.name}.pdf`, pdfBytes);
+        }
+
+        loadingText.textContent = '正在打包 ZIP...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+        // 下载
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `${currentFileName}_splits.zip`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+
+        hideLoading();
+      } catch (error) {
+        hideLoading();
+        alert('导出失败: ' + error.message);
+        console.error(error);
+      }
+    });
+
+    function showLoading(text) {
+      loadingText.textContent = text;
+      loadingOverlay.classList.add('visible');
+    }
+
+    function hideLoading() {
+      loadingOverlay.classList.remove('visible');
+    }
+
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    }
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      if (newTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+      localStorage.setItem('theme', newTheme);
+    });
+  </script>
+</body>
+</html>
